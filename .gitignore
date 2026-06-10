@@ -1,0 +1,169 @@
+# =========================================
+# EmotionSense V2 - Git Ignore
+# React + FastAPI + ML Research Project
+# =========================================
+
+
+# -----------------------------------------
+# Python
+# -----------------------------------------
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+
+# -----------------------------------------
+# Node / React
+# -----------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+frontend/dist/
+frontend/build/
+
+
+# -----------------------------------------
+# Environment Variables & Secrets
+# -----------------------------------------
+.env
+.env.*
+!.env.example
+
+# API Keys
+secrets.json
+credentials.json
+
+
+# -----------------------------------------
+# Machine Learning Models
+# -----------------------------------------
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+
+# TensorFlow / Keras
+*.h5
+*.keras
+*.pb
+
+# ONNX
+*.onnx
+
+# HuggingFace downloaded models
+models_cache/
+cache/
+
+
+# -----------------------------------------
+# Datasets
+# -----------------------------------------
+data/
+datasets/
+raw_data/
+processed_data/
+
+# Large files
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+
+# -----------------------------------------
+# Experiments & Generated Results
+# -----------------------------------------
+experiments/results/
+experiments/logs/
+experiments/runs/
+
+# TensorBoard
+runs/
+logs/
+
+
+# -----------------------------------------
+# Databases (local development)
+# -----------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+
+# -----------------------------------------
+# Jupyter Notebooks
+# -----------------------------------------
+.ipynb_checkpoints/
+
+
+# -----------------------------------------
+# IDEs & Editors
+# -----------------------------------------
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Vim
+*.swp
+*.swo
+
+
+# -----------------------------------------
+# Operating System Files
+# -----------------------------------------
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+
+# -----------------------------------------
+# Temporary Files
+# -----------------------------------------
+*.tmp
+*.temp
+*.bak
+
+
+# -----------------------------------------
+# Deployment
+# -----------------------------------------
+
+# Docker
+docker-compose.override.yml
+
+# Local server files
+*.log
+
