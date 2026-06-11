@@ -36,8 +36,8 @@ The system is divided into five major components:
                         |
       -------------------------------------
       |                 |                 |
-    Text              Audio             Face
-      |                 |                 |
+    Text (transcribed) Audio             Face
+      |<----------------|                 |
  BERT Emotion    Speech Processing   Facial Emotion
    Classifier     + Audio Emotion       Model
       |                 |                 |
@@ -66,6 +66,7 @@ The interface should allow users to communicate naturally using one or more moda
 
 * Traditional chat messages.
 * Sent to the text emotion recognition module and the LLM.
+* Also Voice transcribe will be use, if user is not directly typing
 
 ### Audio Input
 
@@ -215,6 +216,8 @@ The LLM then adapts:
 * Level of encouragement.
 * Conversational strategy.
 
+It includes an emotional speech synthesis (TTS) layer that converts responses into voice output with emotion-aware prosody (tone, pitch, speed), allowing the assistant to speak in a manner aligned with both user emotion and response context.
+
 ---
 
 # 9. Frontend System — React
@@ -246,6 +249,9 @@ Possible designs:
 * Dynamic waveform.
 * Emotion timeline.
 * Mood intensity indicator.
+
+### Visualization ORB
+* A visuallization of speaking ORB, showcase the chatbot talking back
 
 ---
 
@@ -366,7 +372,7 @@ React Frontend
 |               |               |
 Text          Audio            Face
 Module        Module           Module
-|               |               |
+|--------------|               |
 BERT          Placeholder     Placeholder
 ---------------------------------
         |
@@ -603,3 +609,7 @@ It aims to provide them with a **human-like emotional perception and memory syst
 ---
 
 # Section for What's Currently Going on
+
+[*] Directory Setup
+[*] Frontend Basic Setup + Libraries (shadcn, tailwind)
+[] Basic Layout of the Frontend App  (Needs Update, ChatInput.jsx is removed, need to add BottomBar.jsx & and a visualizer ORB)
