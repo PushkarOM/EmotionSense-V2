@@ -4,10 +4,15 @@ import { Moon, Sun } from "lucide-react"
 import { Button } from "./components/ui/button"
 
 import ChatWindow from "./components/chat/ChatWindow"
+import BottomBar from "./components/chat/BottomBar"
+import TextInput from "./components/chat/TextInput"
+import CameraFeed from "./components/camera/CameraFeed"
 
 
 import EmotionOrb from "./components/emotion/EmotionOrb"
 import ModalityStatus from "./components/emotion/ModalityStatus"
+
+import { sendChatMessage } from "./services/api"
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
@@ -15,15 +20,34 @@ export default function App() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [textOpen, setTextOpen] = useState(false)
   const [messages, setMessages] = useState([])
+  const [listening] = useState(true)
 
 
-  const handleSend = (text) => {
-    setMessages(prev => [...prev, {
+  const handleSend = async (text) => {
+    const userMsg = {
       id: Date.now(),
       role: "user",
       content: text,
       emotion: null,
-    }])
+    }
+    setMessages(prev => [...prev, userMsg])
+
+    try {
+      const { reply, emotion } = await sendChatMessage(text)
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: reply,
+        emotion,
+      }])
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: "Could not reach the backend.",
+        emotion: null,
+      }])
+    }
   }
 
   return (
@@ -54,23 +78,26 @@ export default function App() {
           {/* Camera feed — shown when open */}
           {cameraOpen && (
             <div className="border-t p-4">
-              {/* CameraFeed goes here */}
-              <p className="text-muted-foreground text-sm">Camera feed</p>
+              <CameraFeed />
             </div>
           )}
 
           {/* Text input — shown when open */}
           {textOpen && (
             <div className="border-t px-4 pt-3">
-              {/* TextInput goes here */}
-              <p className="text-muted-foreground text-sm">Text input</p>
+              <TextInput onSend={handleSend} />
             </div>
           )}
 
           {/* Bottom bar */}
           <div className="border-t p-4">
-            {/* BottomBar goes here */}
-            <p className="text-muted-foreground text-sm">Bottom bar</p>
+            <BottomBar
+              listening={listening}
+              cameraOpen={cameraOpen}
+              onCameraToggle={() => setCameraOpen(c => !c)}
+              textOpen={textOpen}
+              onTextToggle={() => setTextOpen(t => !t)}
+            />
           </div>
 
         </section>

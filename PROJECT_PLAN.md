@@ -291,14 +291,6 @@ Recommended stack:
 
 ---
 
-I have gone through your current **EmotionSense v2 Master System Blueprint**. 
-
-I would add the Phase Planning **after Section 10 (Backend System)** and before the Research section, because it explains **how the system will be engineered**, while the research section explains **why the system matters**.
-
-Here is the section to insert:
-
----
-
 # 11. Development Roadmap & Phase Planning
 
 EmotionSense will be developed as a complete V2 architecture from the beginning. The system will be designed around the final multimodal architecture, while individual components will be implemented incrementally.
@@ -610,6 +602,8 @@ It aims to provide them with a **human-like emotional perception and memory syst
 
 # Section for What's Currently Going on
 
-[*] Directory Setup
-[*] Frontend Basic Setup + Libraries (shadcn, tailwind)
-[] Basic Layout of the Frontend App  (Needs Update, ChatInput.jsx is removed, need to add BottomBar.jsx & and a visualizer ORB)
+- [*] Directory Setup
+- [*] Frontend Basic Setup + Libraries (shadcn, tailwind)
+- [*] Basic Layout of the Frontend App  (Needs Update, ChatInput.jsx is removed, need to add BottomBar.jsx & and a visualizer ORB)
+- [*] Completed basic setup of backend (Directory structure & libraries)
+- [] Started dummy route for chat and emotion in backend
