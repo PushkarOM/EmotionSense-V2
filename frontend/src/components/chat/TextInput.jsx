@@ -19,7 +19,7 @@ export default function TextInput({ onSend }) {
   }
 
   return (
-    <div className="flex gap-2 items-end pb-3">
+    <div className="flex gap-2 items-center pb-3">
       <textarea
         className="flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm
                    focus:outline-none focus:ring-2 focus:ring-ring min-h-11 max-h-32"

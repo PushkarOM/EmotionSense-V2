@@ -36,7 +36,7 @@ export default function ChatWindow({ messages }) {
 
   return (
     <ScrollArea className="h-full pr-2">
-      <div className="flex flex-col gap-4 py-2">
+      <div className="flex flex-col gap-4 py-2 m-2 mr-4">
         {messages.length === 0 && (
           <p className="text-muted-foreground text-sm text-center mt-8">
             Start a conversation — EmotionSense is listening.

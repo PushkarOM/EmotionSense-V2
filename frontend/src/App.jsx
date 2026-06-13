@@ -10,7 +10,9 @@ import CameraFeed from "./components/camera/CameraFeed"
 
 
 import EmotionOrb from "./components/emotion/EmotionOrb"
+import SpeakingOrb from "./components/emotion/SpeakingOrb"
 import ModalityStatus from "./components/emotion/ModalityStatus"
+import { useEmotion } from "./context/EmotionContext"
 
 import { sendChatMessage } from "./services/api"
 
@@ -21,6 +23,10 @@ export default function App() {
   const [textOpen, setTextOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [listening] = useState(true)
+
+  const [speaking, setSpeaking] = useState(false)
+
+  const { updateEmotion } = useEmotion()
 
 
   const handleSend = async (text) => {
@@ -33,13 +39,20 @@ export default function App() {
     setMessages(prev => [...prev, userMsg])
 
     try {
-      const { reply, emotion } = await sendChatMessage(text)
+      const { reply, emotion, confidence } = await sendChatMessage(text)
+
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: "assistant",
         content: reply,
         emotion,
       }])
+
+      updateEmotion({
+        current: emotion,
+        confidence,
+        sources: { text: emotion, audio: null, face: null },
+      })
     } catch (err) {
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
@@ -51,21 +64,23 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       
       {/* Header */}
-      <header className="border-b px-6 py-3 flex items-center justify-between">
+      <header className="border-b px-6 py-3 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">EmotionSense</h1>
           <p className="text-xs text-muted-foreground">Multimodal Emotion AI</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </Button>
+        <div className="flex justify-center items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </Button>
+        </div>
       </header>
 
       {/* Main two-column layout */}
-      <main className="flex h-[calc(100vh-57px)]">
+      <main className="flex flex-1 overflow-hidden">
         
         {/* Left — Chat + Controls */}
         <section className="flex flex-col flex-1 border-r">
@@ -104,7 +119,8 @@ export default function App() {
 
         
         {/* Right — Emotion Panel */}
-        <aside className="w-80 flex flex-col p-4 gap-4">
+        <aside className="w-80 flex flex-col p-4 gap-4 overflow-y-auto">
+          <SpeakingOrb speaking={speaking} />
           <EmotionOrb />
           <ModalityStatus />
           {/* EmotionHistory goes here */}

@@ -10,8 +10,9 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/emotionsense"
 
-    HF_MODEL_TEXT_EMOTION: str = "placeholder/bert-emotion"
-    HF_MODEL_TEXT_GEN: str = "placeholder/llm-model"
+    HF_TOKEN: str = ""
+    EMOTION_MODEL_ID: str = "PushkarOM/roberta-head-goemotion"
+    LLM_MODEL_ID: str = "meta-llama/Llama-3.1-8B-Instruct"
 
     SHORT_TERM_WINDOW: int = 10
     LONG_TERM_ENABLED: bool = False

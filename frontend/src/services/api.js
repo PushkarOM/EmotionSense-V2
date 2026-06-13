@@ -8,7 +8,7 @@ export async function sendChatMessage(message) {
   })
 
   if (!res.ok) throw new Error("Chat request failed")
-  return res.json()  // { reply, emotion }
+  return res.json()  // { reply, emotion, confidence }
 }
 
 export async function getEmotionState() {

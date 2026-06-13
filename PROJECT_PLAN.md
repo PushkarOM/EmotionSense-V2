@@ -606,4 +606,11 @@ It aims to provide them with a **human-like emotional perception and memory syst
 - [*] Frontend Basic Setup + Libraries (shadcn, tailwind)
 - [*] Basic Layout of the Frontend App  (Needs Update, ChatInput.jsx is removed, need to add BottomBar.jsx & and a visualizer ORB)
 - [*] Completed basic setup of backend (Directory structure & libraries)
-- [] Started dummy route for chat and emotion in backend
+- [*] Started dummy route for chat and emotion in backend
+- [*] Completed the Dummy route hook up to acutal HF Inference to use the BERT (fine Tuned on GoEmotion to produce Emotion labels), and LLM Text response Generation also using HF and llma modle
+- [*] Updated the Respective Routes /chat /emotion/analyze
+- [*] Updated Frontend Emotion Context, so now the UI ORBs and Chat msg have the Emotion Badge Attached to it
+
+- **Phase 1 (Compeleted) -- Basic Text Emotion Chat**
+
+
