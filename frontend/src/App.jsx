@@ -12,6 +12,7 @@ import CameraFeed from "./components/camera/CameraFeed"
 import EmotionOrb from "./components/emotion/EmotionOrb"
 import SpeakingOrb from "./components/emotion/SpeakingOrb"
 import ModalityStatus from "./components/emotion/ModalityStatus"
+import EmotionHistory from "./components/emotion/EmotionHistory"
 import { useEmotion } from "./context/EmotionContext"
 
 import { sendChatMessage } from "./services/api"
@@ -123,8 +124,7 @@ export default function App() {
           <SpeakingOrb speaking={speaking} />
           <EmotionOrb />
           <ModalityStatus />
-          {/* EmotionHistory goes here */}
-          <p className="text-muted-foreground text-sm">Emotion history</p>
+          <EmotionHistory />
         </aside>
 
       </main>
