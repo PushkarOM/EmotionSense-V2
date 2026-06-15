@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from models.text_emotion.classifier import classify_emotion
-from models.llm.generator import generate_reply
+from services.text_emotion.classifier import classify_emotion
+from services.llm.generator import generate_reply
 
 router = APIRouter()
 

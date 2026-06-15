@@ -317,7 +317,7 @@ EmotionSense/
 ├── backend/
 │   ├── api/                     # FastAPI routes
 │   │
-│   ├── models/
+│   ├── services/
 │   │   ├── text_emotion/
 │   │   ├── audio_emotion/
 │   │   ├── face_emotion/
