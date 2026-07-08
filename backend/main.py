@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from api.routes import health, chat, emotion
+from api.routes import health, chat, emotion, audio
 
 app = FastAPI(
     title="EmotionSense V2",
@@ -21,3 +21,4 @@ app.add_middleware(
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(emotion.router, prefix="/emotion", tags=["emotion"])
+app.include_router(audio.router, prefix="/audio", tags=["audio"])

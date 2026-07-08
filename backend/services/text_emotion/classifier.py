@@ -1,6 +1,7 @@
 from transformers import pipeline
 from core.config import settings
 from .labels import label_to_emotion
+from .canonical import goemotions_to_canonical
 
 _classifier = None
 
@@ -36,13 +37,18 @@ def classify_emotion(text: str):
         dict: The predicted emotion, confidence score, and all emotion scores.
     """
     clf = get_classifier()
-    results = clf(text)[0]
+    results = clf(text, truncation=True, max_length=512)[0]
     mapped = [
-        {"label": label_to_emotion(r["label"]), "score": round(r["score"], 4)} for r in results
+        {"label": label_to_emotion(r["label"]), "score": round(r["score"], 4)}
+        for r in results
     ]
     top = max(mapped, key=lambda x: x["score"])
+    native = top["label"]
+    canonical = goemotions_to_canonical(native)
+
     return {
-        "emotion": top["label"],
+        "native_emotion": native,
+        "canonical_emotion": canonical,
         "confidence": top["score"],
         "all_scores": {r["label"]: r["score"] for r in mapped},
     }

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import torch
 
 
 class Settings(BaseSettings):
@@ -16,6 +17,10 @@ class Settings(BaseSettings):
 
     SHORT_TERM_WINDOW: int = 10
     LONG_TERM_ENABLED: bool = False
+
+    WHISPER_MODEL_SIZE: str = "base"
+    AUDIO_EMOTION_MODEL_ID: str = "PushkarOM/wav2vec2-ser-v1"
+    DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
 
     class Config:
         env_file = ".env"

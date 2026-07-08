@@ -24,7 +24,12 @@ def get_client():
     return _client
 
 
-def generate_reply(message: str, emotion: str = "neutral") -> str:
+def generate_reply(
+    message: str,
+    acoustic_emotion: str | None = None,
+    semantic_emotion: str | None = None,
+    disagreement: bool = False,
+) -> str:
     """
     Generate an emotionally-aware response using a language model.
 
@@ -42,10 +47,30 @@ def generate_reply(message: str, emotion: str = "neutral") -> str:
     
     client = get_client()
 
+    # build emotional context string
+    if acoustic_emotion and semantic_emotion:
+        if disagreement:
+            emotion_context = (
+                f"[Emotional context: voice tone suggests {acoustic_emotion}, "
+                f"words suggest {semantic_emotion}. Possible masked or suppressed emotion.]"
+            )
+        else:
+            emotion_context = f"[Emotional context: {acoustic_emotion}.]"
+    elif acoustic_emotion:
+        emotion_context = f"[Emotional context: {acoustic_emotion}.]"
+    elif semantic_emotion:
+        emotion_context = f"[Emotional context: {semantic_emotion}.]"
+    else:
+        emotion_context = ""
+
     system_prompt = (
-        f"You are an emotionally-aware assistant. "
-        f"The user's detected emotional state is '{emotion}'. "
-        f"Respond naturally and considerately given this context."
+        "You are a warm, intelligent conversational AI. "
+        "You have been given emotional context about the user below. "
+        "Use this context to subtly inform your tone, pacing, and response — "
+        "but do NOT explicitly mention the emotion, label it, or say things like "
+        "'I can sense you are feeling X' or 'you sound Y'. "
+        "Just respond naturally and appropriately as a perceptive person would. "
+        f"{emotion_context}"
     )
 
     response = client.chat_completion(

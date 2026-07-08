@@ -12,7 +12,7 @@ Unlike traditional chatbots that only rely on textual conversation, EmotionSense
 
 The system maintains an evolving emotional understanding of the user over time, allowing conversations to become more personalized, context-aware, and emotionally adaptive.
 
-The final product will be a web-based AI companion with a natural conversational interface.
+The final product is a publicly deployed web-based AI companion with a natural conversational interface, designed to serve as a personal emotional support and conversational agent.
 
 ---
 
@@ -24,6 +24,7 @@ The goal of EmotionSense is to bridge the gap between human emotional communicat
 * Maintain both short-term and long-term emotional context.
 * Generate responses that consider not only what the user says but also how they feel.
 * Provide a more empathetic and personalized conversational experience.
+* Serve as a reliable, always-available emotional companion.
 
 ---
 
@@ -38,125 +39,134 @@ The system is divided into five major components:
       |                 |                 |
     Text (transcribed) Audio             Face
       |<----------------|                 |
- BERT Emotion    Speech Processing   Facial Emotion
-   Classifier     + Audio Emotion       Model
+ RoBERTa Emotion   Speech Processing  Facial Emotion
+   Classifier      + Audio Emotion       Model
+ (GoEmotions-28)   (Wav2Vec2-SER)    (deferred)
       |                 |                 |
       -------------------------------------
                         |
                 Emotion Fusion Layer
+                  (canonical 8-class)
                         |
                 Current Emotion State
                         |
                   Memory Module
+             (short-term + long-term)
                         |
           Emotional Context Representation
                         |
                  LLM Response Engine
+              (Llama 3.1 8B Instruct)
                         |
-                 Personalized Reply
+              Personalized Reply + TTS
 ```
+
+### Canonical Emotion Taxonomy (locked — 8 classes)
+
+All modalities map to this shared label space:
+
+| ID | Label | Notes |
+|----|-------|-------|
+| 0 | neutral | |
+| 1 | happy | Covers excitement, joy, amusement etc. |
+| 2 | sad | |
+| 3 | angry | |
+| 4 | fear | |
+| 5 | disgust | |
+| 6 | surprise | |
+| 7 | frustration | Distinct from angry — kept for acoustic reasons |
+
+Mappings for all modalities (GoEmotions-28, RAVDESS, CREMA-D, IEMOCAP) are versioned in `backend/common/configs/label_mapping.yaml` as the single source of truth.
 
 ---
 
 # 4. Input Layer — Multimodal Data Acquisition
 
-The interface should allow users to communicate naturally using one or more modalities.
-
 ### Text Input
 
-* Traditional chat messages.
+* Traditional typed chat messages.
 * Sent to the text emotion recognition module and the LLM.
-* Also Voice transcribe will be use, if user is not directly typing
+* Also used for transcribed voice input — voice is the primary modality.
 
 ### Audio Input
 
-The voice input has two parallel purposes:
+Voice input serves two parallel purposes:
 
-1. Speech-to-text conversion:
+1. **Speech-to-text** — Whisper-base converts spoken language into text for the LLM.
+2. **Speech emotion recognition** — Wav2Vec2-SER extracts emotional cues from vocal properties (pitch, energy, tone, speaking rate).
 
-   * Converts spoken language into text for the chatbot.
-
-2. Speech emotion recognition:
-
-   * Extracts emotional cues from vocal properties such as:
-
-     * Pitch variation
-     * Speaking rate
-     * Energy
-     * Tone
-
----
+Voice is the **primary interaction modality**. The keyboard input is optional and toggled explicitly by the user.
 
 ### Facial Input
 
-The webcam stream is processed periodically to identify facial expressions and estimate emotional cues such as:
-
-* Happiness
-* Sadness
-* Anger
-* Surprise
-* Fear
-* Neutral state
+The webcam stream is processed periodically to identify facial expressions. When active, the camera feed is shown in the UI with a live emotion overlay badge. The face module is currently deferred pending model development.
 
 ---
 
 # 5. Emotion Understanding Layer
 
-Each modality acts as an independent emotional sensor.
+Each modality acts as an independent emotional sensor. All outputs follow a standardized schema:
+
+```json
+{
+  "native_emotion": "joy",
+  "canonical_emotion": "happy",
+  "confidence": 0.85,
+  "all_scores": { ... }
+}
+```
+
+`canonical_emotion` drives the UI and fusion layer. `native_emotion` is preserved for research and debugging.
 
 ### Text Module
 
-* Fine-tuned BERT model trained on the GoEmotions dataset.
-* Provides a text-based emotional interpretation.
+* Model: `PushkarOM/roberta-head-goemotion` (RoBERTa fine-tuned on GoEmotions-28)
+* Returns 28-class native label mapped to canonical 8-class via `label_mapping.yaml`
+* Used as semantic signal in voice mode (informational), primary signal in text-only mode
+* Known limitation: neutral-text bias on scripted/acted speech corpora
 
 ### Audio Module
 
-* Speech emotion recognition model.
-* Provides emotional information unavailable from text alone.
-
-Example:
-
-> "I'm fine."
-
-Text may appear neutral.
-
-However, a trembling or low-energy voice may indicate sadness or distress.
-
----
+* Model: `PushkarOM/wav2vec2-ser-v1` (Wav2Vec2-base fine-tuned on RAVDESS + CREMA-D + IEMOCAP)
+* Trained on 16,411 clips, 8 canonical classes, speaker-disjoint splits
+* Test weighted F1: 0.635
+* **Primary emotion signal in voice mode**
+* Native labels are already canonical — native_emotion == canonical_emotion
+* Next planned version: `wav2vec2-ser-v4` (cross-attention intermediate fusion)
 
 ### Face Module
 
-Provides non-verbal information.
-
-Example:
-
-A user says:
-
-> "Everything is okay."
-
-A facial expression showing sadness or frustration can reveal emotional mismatch.
+* Deferred pending model development
+* Camera feed is wired in frontend with emotion overlay badge placeholder
+* Will follow same standardized schema on integration
 
 ---
 
 # 6. Emotion Fusion Layer
 
-The fusion layer combines information from all available modalities to estimate a single representation of the user's current emotional state.
+The fusion layer combines information from all available modalities into a single canonical emotion state.
 
-Its responsibilities include:
+### Current State (working demo)
 
-* Handling conflicting emotional signals.
-* Dealing with missing modalities.
-* Measuring confidence and reliability of predictions.
-* Producing a stable emotional representation.
+* **Voice mode**: acoustic emotion (Wav2Vec2) is the primary signal. Semantic (RoBERTa on transcript) is informational only — passed to LLM as context but does not affect `current_emotion`.
+* **Text mode**: semantic emotion (RoBERTa) is the primary signal.
+* **Disagreement flag**: set when `acoustic.canonical_emotion != semantic.canonical_emotion`. Passed explicitly to the LLM to allow it to reason about masked or suppressed emotion.
 
-The exact fusion strategy is intentionally left as an area of experimentation and future research.
+### Research Findings (from `emotion-ai-research` repo)
 
-Possible future directions include:
+| Strategy | Weighted F1 | vs Acoustic-only |
+|---|---|---|
+| Acoustic-only (v1 baseline) | 0.6357 | — |
+| Late fusion, best fixed weights (0.8/0.2) | 0.6357 | 0.000 |
+| Dynamic confidence weighting | 0.4971 | -0.139 |
 
-* Rule-based weighting.
-* Confidence-based weighting.
-* Attention-based multimodal models.
-* Temporal emotion modeling.
+Late fusion does not improve over acoustic-only on scripted speech corpora. Dynamic weighting actively degrades performance due to 79.3% modality disagreement driven by semantic neutral-text bias. Intermediate fusion (v4, cross-attention) is the next planned strategy.
+
+### Planned Fusion Evolution
+
+* **v4**: cross-attention intermediate fusion (joint training, currently in research)
+* **v5**: domain-adapted semantic model or multimodal contrastive pretraining
+* **3-modality**: audio + face + text fusion design informed by audio-only findings
 
 ---
 
@@ -164,453 +174,416 @@ Possible future directions include:
 
 Human emotions are not isolated moments. They evolve over time.
 
-The memory module provides emotional continuity by storing historical emotional information from previous interactions.
+### Short-term Memory (session-level) — planned next
 
-It may maintain:
+* Rolling window of recent turns (configurable, default 10)
+* Stores: message, detected emotion, confidence, timestamp, modality sources
+* Passed as context to LLM for emotional progression awareness
+* Example: `Frustrated → Confused → Relieved` informs the LLM that the user's state is improving
 
-### Short-term memory
+### Long-term Memory (cross-session) — future
 
-Recent emotional context from the current conversation.
-
-Example:
-
-```
-Last 10 minutes:
-Frustrated → Confused → Relieved
-```
-
-This allows the AI to understand emotional progression during a conversation.
-
----
-
-### Long-term memory
-
-A broader emotional profile developed over multiple sessions.
-
-Examples:
-
-* The user frequently becomes anxious before interviews.
-* The user generally communicates in a positive tone.
-* The user has recently shown increased stress.
-
-The purpose is not to assign a fixed personality to the user but to provide historical emotional context that improves future interactions.
+* Persistent emotional profile developed over multiple sessions
+* Stores: emotional patterns, frequently observed states, emotional trends over time
+* Backed by PostgreSQL (structured history) + optional vector store (semantic retrieval)
+* Enables the agent to recognize patterns like recurring stress, gradual mood improvement etc.
+* Purpose is not to assign a fixed personality but to improve future interaction quality
 
 ---
 
 # 8. LLM Response Generation Layer
 
-The LLM does not receive only the raw user message.
+The LLM receives an enriched context, not just the raw user message:
 
-It receives an enriched context consisting of:
+* User message (text or voice transcript)
+* Current canonical emotion + confidence
+* Acoustic emotion (voice mode)
+* Semantic emotion (informational)
+* Disagreement flag (possible masked/suppressed emotion)
+* Short-term emotional history (planned)
+* Relevant long-term emotional patterns (future)
 
-* User message.
-* Current emotional state.
-* Recent emotional changes.
-* Relevant long-term emotional patterns.
+### Current Prompt Strategy
 
-The LLM then adapts:
+Emotional context is passed as bracketed metadata. The LLM is instructed to use it implicitly — adapting tone, empathy level, and conversational strategy — without explicitly labeling or announcing the user's emotion in the response.
 
-* Empathy level.
-* Tone of communication.
-* Response style.
-* Level of encouragement.
-* Conversational strategy.
+### TTS Layer (planned)
 
-It includes an emotional speech synthesis (TTS) layer that converts responses into voice output with emotion-aware prosody (tone, pitch, speed), allowing the assistant to speak in a manner aligned with both user emotion and response context.
+Emotion-aware text-to-speech converting responses to voice output with adaptive prosody (tone, pitch, speed) aligned with both user emotion and response context. The Speaking Orb in the frontend will react to TTS audio amplitude in real time.
 
 ---
 
 # 9. Frontend System — React
 
-The application will provide a real-time interactive experience.
+Stack: React + Vite + pnpm, shadcn/ui (Base/Nova), Tailwind v4, Geist font.
 
-Core features:
+Design: clean light/dark clinical UI with indigo accent (OKLCH color system). Voice is the primary interaction modality.
 
-### Chat Interface
+### Layout
 
-* Text conversation with the AI.
+Two-column desktop layout:
+
+**Left panel:**
+* Jarvis-style Speaking Orb (reacts to TTS audio when speaking, idle breathing animation otherwise)
+* Chat transcript (voice transcriptions + AI replies)
+* Bottom bar: mic always-on status indicator, camera toggle, keyboard toggle
+
+**Right panel:**
+* Emotion indicator orb (current canonical emotion + confidence %)
+* Modality status badges (Text / Voice / Face — active/inactive)
+* Emotion history timeline (horizontal, color-coded dots with confidence weighting, hover tooltips)
 
 ### Voice Interface
 
-* Microphone controls.
-* Live speech transcription.
+* Always-on VAD (energy-threshold based, configurable)
+* `MediaRecorder` → WebM → ffmpeg conversion on backend → 16kHz mono WAV
+* Transcript shown in chat, acoustic emotion drives orb and history
+* Keyboard input hidden by default, toggled explicitly
 
 ### Camera Interface
 
-* Enable/disable webcam emotion detection.
-
-### Emotion Visualization
-
-A visual representation of the AI's current understanding of the user.
-
-Possible designs:
-
-* Animated emotional orb.
-* Dynamic waveform.
-* Emotion timeline.
-* Mood intensity indicator.
-
-### Visualization ORB
-* A visuallization of speaking ORB, showcase the chatbot talking back
+* Toggleable webcam feed shown in left panel when active
+* Emotion overlay badge (live once face model integrated)
+* Camera release properly handled on toggle-off
 
 ---
 
 # 10. Backend System — Python
 
-The backend is responsible for all intelligence-related operations.
+Stack: FastAPI, PyTorch (CUDA), Hugging Face Transformers, Whisper, torchaudio, soundfile, ffmpeg.
 
-Recommended stack:
+### Directory Structure
 
-### API Layer
+```
+backend/
+├── api/
+│   └── routes/
+│       ├── health.py
+│       ├── chat.py
+│       ├── audio.py
+│       └── emotion.py
+├── services/
+│   ├── text_emotion/
+│   │   ├── classifier.py      # RoBERTa GoEmotions pipeline
+│   │   ├── labels.py          # LABEL_N → GoEmotions name mapping
+│   │   └── canonical.py       # GoEmotions → canonical via label_mapping.yaml
+│   ├── audio_emotion/
+│   │   ├── ser.py             # Wav2Vec2 SER inference
+│   │   └── transcriber.py     # Whisper transcription
+│   ├── llm/
+│   │   └── generator.py       # HF Inference API (Llama 3.1 8B Instruct)
+│   └── orchestrator.py        # Coordinates all modules, builds emotion state
+├── fusion/                    # Placeholder — fusion logic planned here
+├── memory/                    # Placeholder — memory module planned here
+├── database/                  # Placeholder — DB layer planned here
+├── common/
+│   └── configs/
+│       └── label_mapping.yaml # Single source of truth for all label mappings
+└── core/
+    └── config.py              # Pydantic settings, loaded from .env
+```
 
-* FastAPI
+### API Endpoints
 
-### Machine Learning
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/health` | GET | Server status |
+| `/chat` | POST | Text mode — classify emotion + generate reply |
+| `/audio/analyze` | POST | Voice mode — transcribe + SER + classify + generate reply |
+| `/emotion/analyze/text` | POST | Standalone text emotion classification |
+| `/emotion/state` | GET | Current fused emotion state (stub — planned) |
 
-* PyTorch
-* Hugging Face Transformers
+### Standard Modality Output Schema
 
-### Audio Processing
+```json
+{
+  "native_emotion": "joy",
+  "canonical_emotion": "happy",
+  "confidence": 0.85,
+  "all_scores": { "joy": 0.85, "excitement": 0.10, ... }
+}
+```
 
-* Librosa
-* Speech emotion recognition models
+### Audio Endpoint Response Schema
 
-### Computer Vision
-
-* OpenCV
-* Deep learning facial emotion models
-
-### Database / Memory Storage
-
-* PostgreSQL or MongoDB for user sessions and emotional history.
-* Vector database (optional) for advanced emotional memories and conversation retrieval.
-
-### LLM Integration
-
-* OpenAI API or local models using Ollama.
+```json
+{
+  "current_emotion": "happy",
+  "confidence": 0.82,
+  "transcript": "...",
+  "acoustic": { "native_emotion": "happy", "canonical_emotion": "happy", ... },
+  "semantic": { "native_emotion": "curiosity", "canonical_emotion": "neutral", ... },
+  "disagreement": true,
+  "sources": { "text": null, "audio": "happy", "face": null },
+  "reply": "..."
+}
+```
 
 ---
 
-# 11. Development Roadmap & Phase Planning
+# 11. Infrastructure & Deployment
 
-EmotionSense will be developed as a complete V2 architecture from the beginning. The system will be designed around the final multimodal architecture, while individual components will be implemented incrementally.
+### Security
 
-The philosophy is:
+* API key authentication (header-based) for all endpoints
+* Rate limiting per IP (`slowapi`)
+* CORS locked to specific origins in production
+* Environment secrets managed via `.env` (never committed)
+* HF token scoped to minimum required permissions
+
+### Deployment Stack (planned)
+
+* **Containerization**: Docker + Docker Compose (frontend + backend + DB)
+* **Cloud**: AWS / GCP / VPS (GPU instance for inference)
+* **Reverse proxy**: Nginx
+* **SSL**: Let's Encrypt
+* **CI/CD**: GitHub Actions
+
+### Database (planned)
+
+* **PostgreSQL**: user sessions, conversation history, emotional timeline
+* **Vector store** (optional, future): semantic retrieval of emotional memories
+
+### Model Loading
+
+* Eager loading at startup via FastAPI `lifespan` — all models loaded once on server start, zero cold start on first user request
+
+---
+
+# 12. Development Roadmap & Phase Planning
+
+EmotionSense is developed as a complete V2 architecture from the start. The philosophy is:
 
 > **Design the complete system first, then progressively replace placeholders with fully functional modules.**
 
-This prevents rebuilding the project multiple times and ensures all components are developed with the final architecture in mind.
+---
+
+## Phase 0 — System Design & Repository Architecture ✅
+
+* Full directory structure established
+* Frontend and backend scaffolded
+* All placeholder modules in place
 
 ---
 
-## Phase 0 — System Design & Repository Architecture
+## Phase 1 — Core Pipeline (Text + LLM) ✅
 
-Before implementing features, establish the complete project structure.
-
-Example architecture:
-
-```
-EmotionSense/
-│
-├── frontend/                    # React application
-│
-├── backend/
-│   ├── api/                     # FastAPI routes
-│   │
-│   ├── services/
-│   │   ├── text_emotion/
-│   │   ├── audio_emotion/
-│   │   ├── face_emotion/
-│   │   └── llm/
-│   │
-│   ├── fusion/
-│   │
-│   ├── memory/
-│   │
-│   ├── database/
-│   │
-│   └── main.py
-│
-├── experiments/
-│   ├── evaluation/
-│   ├── ab_testing/
-│   └── notebooks/
-│
-├── docs/
-│   ├── architecture.md
-│   └── research_notes.md
-│
-└── README.md
-```
-
-The repository should already reflect the final vision, even if some modules are initially empty.
+* RoBERTa GoEmotions text classifier integrated (`PushkarOM/roberta-head-goemotion`)
+* Llama 3.1 8B Instruct via HF Inference API integrated
+* `/chat` endpoint working end-to-end
+* Canonical label mapping system implemented (`label_mapping.yaml` as single source of truth)
+* Emotion orchestrator (`process_text`) established
 
 ---
 
-## Phase 1 — Build the Complete Pipeline Using Placeholders
+## Phase 2 — Frontend ✅
 
-Create the complete communication flow before implementing every AI model.
-
-Initial architecture:
-
-```
-React Frontend
-        |
-     FastAPI
-        |
- Emotion Orchestrator
-        |
----------------------------------
-|               |               |
-Text          Audio            Face
-Module        Module           Module
-|--------------|               |
-BERT          Placeholder     Placeholder
----------------------------------
-        |
-    Fusion Layer
-        |
-   Memory Module
-        |
-   LLM Controller
-        |
-      Response
-```
-
-At this stage:
-
-* Text emotion recognition will use the existing fine-tuned BERT model.
-* Audio and face modules can temporarily return dummy outputs.
-* The fusion, memory, and LLM pipeline should already exist.
-
-The objective is to validate the entire V2 workflow as early as possible.
+* Two-panel layout (chat + emotion visualization)
+* Speaking Orb (Jarvis-style, idle + speaking states)
+* Emotion indicator orb with confidence %
+* Modality status badges
+* Emotion history timeline (horizontal, color-coded, hover tooltips)
+* VAD-based voice capture (`useVoiceCapture` hook)
+* Camera feed with emotion overlay placeholder
+* Light/dark mode (OKLCH indigo/cool clinical palette)
+* Bottom bar (mic status, camera toggle, keyboard toggle)
+* Full frontend ↔ backend connection verified
 
 ---
 
-## Phase 2 — Frontend Development
+## Phase 3 — Audio Emotion Module ✅
 
-Develop the final user interaction layer using React.
-
-Core components:
-
-### Chat Interface
-
-* Real-time text conversation.
-* Conversation history.
-
-### Voice Interface
-
-* Microphone controls.
-* Audio recording and transcription display.
-
-### Camera Interface
-
-* Webcam access.
-* Enable/disable emotion tracking.
-
-### Emotion Visualization
-
-Display the system's understanding of the user:
-
-* Current emotion.
-* Confidence score.
-* Active modalities.
-* Emotional history visualization.
-
-Possible designs:
-
-* Animated emotion orb.
-* Dynamic waveform.
-* Mood timeline.
+* Wav2Vec2-SER (`PushkarOM/wav2vec2-ser-v1`) integrated
+* Whisper-base transcription integrated
+* ffmpeg audio conversion pipeline (WebM → 16kHz mono WAV)
+* VAD energy threshold tuned
+* Disagreement flag passed to LLM
+* `/audio/analyze` endpoint working end-to-end
+* Acoustic emotion drives UI; semantic emotion informational only
 
 ---
 
-## Phase 3 — Audio Emotion Module Integration
+## Phase 3.5 — Audio Model Research (in progress, separate repo)
 
-Replace the placeholder audio module with a real speech emotion recognition pipeline.
+Research in `emotion-ai-research` repo:
 
-Components:
+* v1: Wav2Vec2-base acoustic-only — test F1: 0.635 ✅
+* v2: Late fusion fixed weights — no improvement over acoustic-only ✅
+* v3: Dynamic confidence weighting — degrades performance (-0.139 F1) ✅
+* **v4: Cross-attention intermediate fusion — in progress**
+* v5: Proposed improvement (domain adaptation / contrastive pretraining) — planned
 
-* Audio capture.
-* Feature extraction.
-* Speech emotion model.
-* Emotion prediction with confidence.
-
-The rest of the system should remain unchanged because the architecture was designed modularly.
-
----
-
-## Phase 4 — Facial Emotion Module Integration
-
-Replace the facial placeholder with a computer vision-based emotion recognition system.
-
-Components:
-
-* Webcam frame processing.
-* Face detection.
-* Facial expression analysis.
-* Emotion prediction with confidence.
+When v4 is complete and pushed to HuggingFace Hub, EmotionSense integrates it via a single config change (`AUDIO_EMOTION_MODEL_ID` in `.env`).
 
 ---
 
-## Phase 5 — Fusion and Emotional Memory Research
+## Phase 4 — Facial Emotion Module (planned)
 
-Once all modalities are functional, begin experimenting with the core research components.
-
-Areas of exploration:
-
-### Emotion Fusion
-
-Possible approaches:
-
-* Rule-based weighting.
-* Confidence-based fusion.
-* Learned weighting.
-* Attention-based multimodal fusion.
-
-### Temporal Emotional Memory
-
-Investigate:
-
-* How long emotions should persist.
-* How emotional states evolve over time.
-* The difference between short-term and long-term emotional context.
-
-This phase represents one of the major research contributions of EmotionSense.
+* Face emotion model development (separate research track, versioned v1→v5)
+* Integration into `backend/services/face_emotion/`
+* Camera feed emotion overlay badge goes live
+* Fusion layer updated for 3-modality input
 
 ---
 
-## Phase 6 — Evaluation and Research Experiments
+## Phase 5 — Memory Module (planned)
 
-The final phase focuses on validating whether EmotionSense improves human-AI interaction.
+### Short-term (session-level)
+* Rolling window of last N turns with emotion state
+* Passed to LLM as structured context
+* Stored in-memory per session
 
-Create multiple experimental systems:
-
-### Baseline A — Standard LLM
-
-```
-User → LLM → Response
-```
-
-### System B — Text Emotion Agent
-
-```
-User → Text Emotion → LLM
-```
-
-### System C — Multimodal Emotion Agent
-
-```
-User → Text + Audio + Face → LLM
-```
-
-### System D — Full EmotionSense
-
-```
-User → Multimodal Emotion + Memory → LLM
-```
-
-Evaluate based on:
-
-* Empathy.
-* Personalization.
-* Response appropriateness.
-* User preference.
-* Emotional alignment.
-
-The objective is to determine the contribution of each additional component.
+### Long-term (cross-session)
+* PostgreSQL-backed emotional history
+* User sessions, conversation logs, emotion timelines
+* LLM receives summarized emotional patterns from past sessions
 
 ---
 
-# 12. Research Motivation and Potential Contribution
+## Phase 6 — Auth, Infrastructure & Deployment (planned)
 
-The main research question behind EmotionSense is:
+* User authentication (JWT-based)
+* PostgreSQL database layer
+* Docker containerization
+* Cloud deployment (GPU instance)
+* Eager model loading at startup
+* Rate limiting and abuse prevention
+* CORS and API key hardening
+* CI/CD pipeline
+
+---
+
+## Phase 7 — TTS & Speaking Orb (planned)
+
+* Emotion-aware TTS model selection
+* Speaking Orb reacts to real TTS audio amplitude (replaces simulated amplitude)
+* Prosody adapted to user emotional state and response context
+
+---
+
+## Phase 8 — Fusion Research & Evaluation (planned)
+
+Once all modalities are functional and system is deployed:
+
+### Fusion Experiments
+* Confidence-based weighting
+* Learned weighting
+* Attention-based multimodal fusion
+* Temporal emotion modeling
+
+### Evaluation Framework (A/B)
+
+| System | Pipeline |
+|---|---|
+| Baseline A | User → LLM → Response |
+| System B | User → Text Emotion → LLM |
+| System C | User → Text + Audio + Face → LLM |
+| System D | User → Multimodal + Memory → LLM |
+
+Metrics: empathy, personalization, response appropriateness, user preference, emotional alignment.
+
+---
+
+# 13. Research Motivation and Potential Contribution
+
+The main research question:
 
 > **Can explicit multimodal emotional state modeling and persistent affective memory improve the quality, empathy, and personalization of LLM-based conversational agents?**
 
-Modern LLMs are capable of inferring emotions directly from text. However, they have several limitations:
+Modern LLMs have key limitations:
 
-* They rely primarily on linguistic information and often lack access to non-verbal cues such as facial expressions and vocal tone.
-* Their emotional understanding is implicit and not explicitly modeled as a persistent state.
-* They do not naturally maintain a structured history of a user's emotional evolution across interactions.
+* They rely primarily on linguistic information — no access to vocal tone or facial expression.
+* Emotional understanding is implicit, not explicitly modeled as a persistent state.
+* They do not maintain a structured history of the user's emotional evolution.
 
-EmotionSense addresses these limitations by introducing an external emotional intelligence layer that exists alongside the LLM.
+EmotionSense addresses these by introducing an external emotional intelligence layer alongside the LLM.
 
-The proposed contribution consists of three major ideas:
+### Contribution 1 — Multimodal Emotion Perception
 
-### 1. Multimodal Emotion Perception
+Combines what the user says, how they say it, and what they express visually — approximating human emotional communication more closely than text-only systems.
 
-Rather than relying only on text, the system combines:
+### Contribution 2 — Persistent Affective Memory
 
-* What the user says.
-* How the user says it.
-* What the user expresses visually.
+Maintains an evolving emotional history across turns and sessions, enabling the agent to reason about emotional trends and patterns over time rather than treating each turn in isolation.
 
-This more closely approximates human emotional communication.
+### Contribution 3 — Controlled Emotional Conditioning of LLMs
 
----
+Provides explicit emotional context to the LLM as structured input rather than relying on implicit inference. This produces more consistent, controllable, and potentially more empathetic responses.
 
-### 2. Persistent Affective Memory
+### Key Research Findings (to date)
 
-Instead of treating every conversation as an independent event, the system maintains an evolving emotional history.
+* Neither fixed nor dynamic late fusion improves over acoustic-only on scripted speech corpora — motivates intermediate fusion.
+* 79.3% modality disagreement rate on test set reflects scripted-speech corpus characteristic (neutral text, emotional prosody) rather than model failure.
+* Modality disagreement itself is a meaningful signal — may indicate masked or suppressed emotion. Currently surfaced explicitly to the LLM.
 
-This enables the agent to reason about emotional trends, changes, and patterns over time.
-
----
-
-### 3. Controlled Emotional Conditioning of LLMs
-
-Rather than expecting the LLM to infer emotions implicitly, the system provides explicit emotional context.
-
-This allows responses to be:
-
-* More consistent.
-* More controllable.
-* Potentially more empathetic.
-
----
-
-## Potential Research Questions
-
-Some possible directions:
+### Research Questions
 
 * Does multimodal emotion information produce better conversational responses than text-only systems?
 * Does emotional memory improve perceived personalization in long-term conversations?
 * Which modality contributes most to accurate emotional understanding?
-* What is the optimal strategy for combining emotional signals from different modalities?
+* What is the optimal fusion strategy — and does it vary across emotion classes and speaking styles?
+* When acoustic and semantic signals disagree, what does that reveal about the user's emotional state?
 
----
+### Possible Paper Titles
 
-## Possible Paper Title
-
-**"EmotionSense: A Multimodal Affective Memory Framework for Emotionally Adaptive LLM-Based Conversational Agents"**
-
-Alternative titles:
-
+* **"EmotionSense: A Multimodal Affective Memory Framework for Emotionally Adaptive LLM-Based Conversational Agents"**
 * **"Beyond Text: Integrating Multimodal Emotion Recognition and Affective Memory for Personalized AI Conversations"**
 * **"Persistent Emotional State Modeling for Adaptive Human–AI Interaction"**
 
 ---
 
-## Overall Vision
+# 14. Overall Vision
 
 EmotionSense is not trying to replace the reasoning ability of modern LLMs.
 
-It aims to provide them with a **human-like emotional perception and memory system**, enabling AI agents to understand not only the meaning of a conversation, but the emotional journey behind it.
+It aims to provide them with a **human-like emotional perception and memory system**, enabling AI agents to understand not only the meaning of a conversation but the emotional journey behind it.
+
+The product vision is a publicly deployed, always-available emotional companion that gets to know its users over time — not through what they say alone, but through how they feel when they say it.
 
 ---
 
-# Section for What's Currently Going on
+# 15. Currently Going On
 
-- [*] Directory Setup
-- [*] Frontend Basic Setup + Libraries (shadcn, tailwind)
-- [*] Basic Layout of the Frontend App  (Needs Update, ChatInput.jsx is removed, need to add BottomBar.jsx & and a visualizer ORB)
-- [*] Completed basic setup of backend (Directory structure & libraries)
-- [*] Started dummy route for chat and emotion in backend
-- [*] Completed the Dummy route hook up to acutal HF Inference to use the BERT (fine Tuned on GoEmotion to produce Emotion labels), and LLM Text response Generation also using HF and llma modle
-- [*] Updated the Respective Routes /chat /emotion/analyze
-- [*] Updated Frontend Emotion Context, so now the UI ORBs and Chat msg have the Emotion Badge Attached to it
+## Completed
 
-- **Phase 1 (Compeleted) -- Basic Text Emotion Chat**
+- [x] Phase 0 — Directory structure, repo architecture
+- [x] Phase 1 — Text emotion (RoBERTa GoEmotions) + LLM (Llama 3.1 8B) end-to-end
+- [x] Phase 2 — Full frontend (layout, orbs, emotion viz, VAD, camera, dark mode)
+- [x] Phase 3 — Audio emotion (Wav2Vec2-SER v1) + Whisper transcription end-to-end
+- [x] Canonical label taxonomy + label_mapping.yaml as single source of truth
+- [x] Disagreement flag in orchestrator + LLM prompt
+- [x] Emotion history timeline in frontend
+- [x] VAD threshold tuning (ghost response issue resolved)
+- [x] LLM prompt improved (implicit emotional conditioning, no explicit labeling)
+- [x] Audio model research: v1 acoustic-only, v2 late fusion fixed, v3 dynamic weights (all evaluated)
 
+## In Progress
 
+- [ ] Audio model v4 — cross-attention intermediate fusion (separate `emotion-ai-research` repo)
+
+## Up Next (backend)
+
+- [ ] Eager model loading at startup (lifespan event)
+- [ ] Short-term conversation memory (rolling window → LLM context)
+- [ ] `/emotion/state` endpoint — real persistent fused state
+- [ ] Basic API key auth + rate limiting
+- [ ] PostgreSQL session layer (foundation for long-term memory)
+
+## Up Next (frontend)
+
+- [ ] Processing/thinking state indicator on Speaking Orb
+- [ ] VAD amplitude waveform visualization in bottom bar
+- [ ] Mobile layout
+
+## Up Next (infrastructure)
+
+- [ ] Docker containerization
+- [ ] Cloud deployment with GPU instance
+- [ ] CI/CD pipeline
+
+## Deferred
+
+- [ ] Phase 4 — Face emotion model (pending research)
+- [ ] Phase 7 — TTS + real Speaking Orb audio reactivity
+- [ ] Phase 8 — Full fusion research + evaluation framework
+- [ ] Long-term memory (cross-session emotional profile)

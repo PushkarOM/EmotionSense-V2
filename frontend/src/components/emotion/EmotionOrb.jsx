@@ -2,7 +2,7 @@ import { useEmotion, EMOTIONS } from "../../context/EmotionContext"
 
 export default function EmotionOrb() {
   const { emotionState } = useEmotion()
-  const emotion = EMOTIONS[emotionState.current]
+  const emotion = EMOTIONS[emotionState.current] ?? EMOTIONS["neutral"]
   const confidence = emotionState.confidence
 
   return (

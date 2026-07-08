@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTheme } from "./context/ThemeContext"
 import { Moon, Sun } from "lucide-react"
 import { Button } from "./components/ui/button"
@@ -14,6 +14,7 @@ import SpeakingOrb from "./components/emotion/SpeakingOrb"
 import ModalityStatus from "./components/emotion/ModalityStatus"
 import EmotionHistory from "./components/emotion/EmotionHistory"
 import { useEmotion } from "./context/EmotionContext"
+import { useVoiceCapture } from "./hooks/useVoiceCapture"
 
 import { sendChatMessage } from "./services/api"
 
@@ -23,36 +24,73 @@ export default function App() {
   const [cameraOpen, setCameraOpen] = useState(false)
   const [textOpen, setTextOpen] = useState(false)
   const [messages, setMessages] = useState([])
-  const [listening] = useState(true)
 
-  const [speaking, setSpeaking] = useState(false)
 
   const { updateEmotion } = useEmotion()
 
+  const { listening, speaking, start: startMic, stop: stopMic } = useVoiceCapture({
+    onResult: (data) => {
+      // add transcript as user message
+      if (data.transcript) {
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: "user",
+          content: data.transcript,
+          emotion: data.current_emotion ?? null,
+        }])
+      }
+      // add LLM reply
+      if (data.reply) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: data.reply,
+          emotion: data.current_emotion ?? null,
+        }])
+      }
+      // update emotion state
+      updateEmotion({
+        current: data.current_emotion,
+        confidence: data.confidence,
+        sources: data.sources,
+      })
+    },
+    onError: (err) => console.error("Voice capture error:", err),
+  })
+  
+  useEffect(() => {
+    if (!textOpen) {
+      startMic()
+    } else {
+      stopMic()
+    }
+    return () => stopMic()
+  }, [textOpen])
 
   const handleSend = async (text) => {
-    const userMsg = {
-      id: Date.now(),
-      role: "user",
-      content: text,
-      emotion: null,
-    }
-    setMessages(prev => [...prev, userMsg])
-
     try {
-      const { reply, emotion, confidence } = await sendChatMessage(text)
+      const { reply, current_emotion, confidence } = await sendChatMessage(text)
 
+      // add user message with detected emotion
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        role: "user",
+        content: text,
+        emotion: current_emotion,
+      }])
+
+      // add assistant reply
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: "assistant",
         content: reply,
-        emotion,
+        emotion: current_emotion,
       }])
 
       updateEmotion({
-        current: emotion,
+        current: current_emotion,
         confidence,
-        sources: { text: emotion, audio: null, face: null },
+        sources: { text: current_emotion, audio: null, face: null },
       })
     } catch (err) {
       setMessages(prev => [...prev, {
@@ -63,7 +101,7 @@ export default function App() {
       }])
     }
   }
-
+  
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       

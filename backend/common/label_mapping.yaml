@@ -1,0 +1,135 @@
+# Canonical emotion taxonomy: 7 classes
+# Used as the common label space across all datasets and modalities
+canonical_labels:
+  0: neutral
+  1: happy
+  2: sad
+  3: angry
+  4: fear
+  5: disgust
+  6: surprise
+  7: frustration
+
+# ---------------------------------------------------------------
+# RAVDESS native labels -> canonical
+# RAVDESS codes: 01=neutral,02=calm,03=happy,04=sad,05=angry,06=fearful,07=disgust,08=surprised
+ravdess:
+  "01": neutral   # neutral
+  "02": neutral   # calm -> folded into neutral (low arousal, neutral valence)
+  "03": happy
+  "04": sad
+  "05": angry
+  "06": fear
+  "07": disgust
+  "08": surprise
+
+ravdess_native:
+  "01": neutral
+  "02": calm
+  "03": happy
+  "04": sad
+  "05": angry
+  "06": fear
+  "07": disgust
+  "08": surprise
+
+
+ravdess_intensity_native:
+  "01": normal
+  "02": strong
+
+ravdess_intensity_canonical:
+  "01": low
+  "02": high
+
+# ---------------------------------------------------------------
+# CREMA-D native labels -> canonical
+# CREMA-D: ANG, DIS, FEA, HAP, NEU, SAD (no surprise)
+crema_d:
+  ANG: angry
+  DIS: disgust
+  FEA: fear
+  HAP: happy
+  NEU: neutral
+  SAD: sad
+
+crema_d_native:
+  ANG: anger
+  DIS: disgust
+  FEA: fear
+  HAP: happy
+  NEU: neutral
+  SAD: sad
+
+crema_d_intensity_native:
+  LO: low
+  MD: medium
+  HI: high
+  XX: null
+
+crema_d_intensity_canonical:
+  LO: low
+  MD: medium
+  HI: high
+  XX: null
+
+# ---------------------------------------------------------------
+# IEMOCAP native labels -> canonical
+# IEMOCAP codes: neu, hap, sad, ang, exc, fru, fea, sur, dis, oth, xxx
+iemocap_native:
+  neu: neutral
+  hap: happiness
+  sad: sadness
+  ang: anger
+  exc: excited
+  fru: frustration
+  fea: fear
+  sur: surprise
+  dis: disgust
+  oth: other
+  xxx: unlabeled
+
+iemocap:
+  neu: neutral
+  hap: happy
+  sad: sad
+  ang: angry
+  exc: happy        # matches your earlier excited -> happy decision
+  fru: frustration
+  fea: fear
+  sur: surprise
+  dis: disgust
+  oth: null          # drop, not a real emotion
+  xxx: null          # drop, no majority agreement / unlabeled         
+
+# ---------------------------------------------------------------
+# GoEmotions (28 labels) -> canonical
+goemotions:
+  admiration: happy
+  amusement: happy
+  anger: angry
+  annoyance: angry
+  approval: happy
+  caring: happy
+  confusion: neutral     
+  curiosity: neutral     
+  desire: happy
+  disappointment: sad
+  disapproval: angry
+  disgust: disgust
+  embarrassment: fear     
+  excitement: happy
+  fear: fear
+  gratitude: happy
+  grief: sad
+  joy: happy
+  love: happy
+  nervousness: fear
+  optimism: happy
+  pride: happy
+  realization: neutral   
+  relief: happy
+  remorse: sad
+  sadness: sad
+  surprise: surprise
+  neutral: neutral

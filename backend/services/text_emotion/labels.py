@@ -8,6 +8,7 @@ GOEMOTIONS_LABELS = {
     24: "remorse", 25: "sadness", 26: "surprise", 27: "neutral",
 }
 
+VALID_LABELS = set(GOEMOTIONS_LABELS.values())
 
 def label_to_emotion(label: str) -> str:
     """
@@ -16,5 +17,12 @@ def label_to_emotion(label: str) -> str:
     Args :
         labels (str) : Classification Given by the Model
     """
-    idx = int(label.replace("LABEL_", ""))
-    return GOEMOTIONS_LABELS[idx]
+    # already a human-readable label
+    if label in VALID_LABELS:
+        return label
+    # LABEL_N format
+    if label.startswith("LABEL_"):
+        idx = int(label.replace("LABEL_", ""))
+        return GOEMOTIONS_LABELS[idx]
+    # fallback
+    return "neutral"

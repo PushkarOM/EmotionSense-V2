@@ -5,6 +5,9 @@ import { EMOTIONS } from "../../context/EmotionContext"
 
 function ChatMessage({ message }) {
   const isUser = message.role === "user"
+  console.log(message.emotion);
+  console.log(EMOTIONS);
+  console.log(EMOTIONS[message.emotion]);
 
   return (
     <div className={`flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
@@ -15,7 +18,7 @@ function ChatMessage({ message }) {
         }`}>
         {message.content}
       </div>
-      {message.emotion && (
+      {message.emotion && message.role === "user" &&(
         <Badge variant="outline" className="text-xs px-2 py-0" style={{
           borderColor: EMOTIONS[message.emotion]?.color,
           color: EMOTIONS[message.emotion]?.color,

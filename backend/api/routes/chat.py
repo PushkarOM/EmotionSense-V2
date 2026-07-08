@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from services.text_emotion.classifier import classify_emotion
+from services.orchestrator import process_text
 from services.llm.generator import generate_reply
 
 router = APIRouter()
@@ -26,8 +26,10 @@ class ChatResponse(BaseModel):
         confidence (float): Confidence score of the predicted emotion.
     """
     reply: str
-    emotion: str
+    current_emotion: str
     confidence: float
+    semantic: dict | None = None
+    disagreement: bool = False
 
 
 @router.post("/", response_model=ChatResponse)
@@ -40,11 +42,19 @@ async def chat(payload: ChatRequest):
         ChatResponse: Contains chatbot reply, detected emotion,
         and confidence score.
     """
-    emotion_result = classify_emotion(payload.message)
-    reply = generate_reply(payload.message, emotion=emotion_result["emotion"])
+    result = process_text(payload.message)
+
+    reply = generate_reply(
+        message=payload.message,
+        acoustic_emotion=None,
+        semantic_emotion=result["semantic"]["canonical_emotion"],
+        disagreement=False,
+    )
 
     return ChatResponse(
         reply=reply,
-        emotion=emotion_result["emotion"],
-        confidence=emotion_result["confidence"],
+        current_emotion=result["current_emotion"],
+        confidence=result["confidence"],
+        semantic=result["semantic"],
+        disagreement=False,
     )

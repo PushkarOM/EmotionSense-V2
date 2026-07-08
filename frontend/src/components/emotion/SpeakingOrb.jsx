@@ -24,7 +24,7 @@ function useSimulatedAmplitude(active) {
 
 export default function SpeakingOrb({ speaking = false }) {
   const { emotionState } = useEmotion()
-  const emotion = EMOTIONS[emotionState.current]
+  const emotion = EMOTIONS[emotionState.current] ?? EMOTIONS["neutral"]
   const amplitude = useSimulatedAmplitude(speaking)
 
   const baseScale = 1

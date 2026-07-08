@@ -3,5 +3,10 @@ uvicorn[standard]
 pydantic-settings
 python-dotenv
 transformers
-torch
+torch==2.6.0+cu124
+torchaudio==2.6.0+cu124
 huggingface_hub
+torchaudio
+openai-whisper
+python-multipart
+soundfile 
